@@ -1,0 +1,129 @@
+---
+title: "Active Monitoring Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This document provides an elementary analysis of data collected from activity monitor devices that record personal movements. Specifically, the data includes the number of steps taken in 5 minute intervals each day during October and November of 2012.
+
+### Loading and preprocessing the data
+To begin the analysis, the data was downloaded and was read as a csv file into R:
+```{r}
+fileURL<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+file<- "./activFile/actdata.zip"
+
+if (!file.exists("activFile")){
+  dir.create("activFile")
+}
+download.file(fileURL, file)
+unzip(file, "activity.csv")
+
+data<-read.csv("activity.csv",header=TRUE)
+```
+The str() function was applied to the data to get a sense of the data and identify the type of variables:
+```{R}
+str(data)
+```
+* The steps and interval variable are both integers
+* The date variable is a factor variable and needs to processes into a date variable
+```{R}
+data$date<-as.Date(data$date, "%Y-%m-%d")
+```
+
+### What is mean total number of steps taken per day?
+To calculate the number of steps taken per day, a new variable "total" was created and the tapply function was used to sum all the steps by the date:
+```{R}
+total<-tapply(data$steps, data$date,sum, simplify = TRUE, na.rm=TRUE)
+
+hist(total, xlab="Total Number of Step", col="blue")
+```
+
+The mean and median of total:
+```{r}
+mean(total)
+median(total)
+```
+
+### What is mean total number of steps taken per day?
+Time series plot of 5-minute interval and the average number of steps take, averaged across all days:  
+```{r}
+avg<-tapply(data$steps, data$interval,mean,simplify=TRUE, na.rm=TRUE)
+intervals<-as.numeric(names(avg))
+plot(intervals,avg,type="l", xlab="5-minute interval", ylab="Average number of steps taken")
+```
+
+The maximum number of steps:
+```{r}
+names(which.max(avg))
+```
+
+### Imputing missing values
+The number of missing values in the steps variable:
+```{r}
+sum(is.na(data$steps))
+```
+
+The missing values were replaced by the mean of the 5-minute interval:
+```{r}
+data$avg<-tapply(data$steps, data$interval,mean,simplify=TRUE, na.rm=TRUE)
+data$replace<-data$steps
+for(i in 1:length(data$replace)){
+  if(is.na(data$replace[i]==TRUE)){
+    data$replace[i]<-data$avg[i]
+  }
+}
+```
+
+A new dataset was created with all values filled in:
+```{r}
+newData<-data.frame(data$replace,data$date, data$interval)
+names(newData)<-c("steps","date","interval")
+newtotal<-tapply(newData$steps, newData$date,sum, simplify = TRUE)
+```
+
+Histogram of the new total variable:
+```{r}
+hist(newtotal, xlab="Total Number of Steps", col="red")
+```
+
+The mean and median of the new total variable:
+```{r}
+mean(newtotal)
+median(newtotal)
+```
+
+### Differences in activity patterns between weekdays and weekends
+
+A new variable weekend was created to separate the date variables into weekday and weekend:
+```{r}
+newData$weekday<-weekdays(newData$date)
+wkd<-c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
+newData$weekend<-factor(newData$weekday %in% wkd,levels=c(FALSE, TRUE),labels=c("weekend","weekday"))
+
+wknd<-newData[newData$weekend=="weekend",]
+wkdy<-newData[newData$weekend=="weekday",]
+```
+
+Two different sets of data were created to for the comparisons:
+```{r}
+wknd_avg<-tapply(wknd$steps, wknd$interval, mean,simplify=TRUE)
+wkdy_avg<-tapply(wkdy$steps, wkdy$interval,mean,simplify=TRUE)
+
+g<-as.numeric(names(wknd_avg))
+```
+
+Finally, the two different graphs were plotted:
+
+```{r}
+par(mfrow=c(2,1))
+
+plot(g,wknd_avg,type="l", col="blue",xlab="Intervals", ylab="Weekend Average")
+plot(g,wkdy_avg,type="l", col="blue", xlab="Intervals", ylab="Weekday Average")
+```
+
+
